@@ -1,4 +1,4 @@
-// Version: 1.1.0 - Bug fixes and word diff feature
+// Version: 1.2.0 - Build: 2025-11-28 14:24 UTC
 // Configuration and Constants
 const CONFIG = {
     REQUIRED_READINGS: 3,
@@ -11,7 +11,8 @@ const CONFIG = {
         LOW_ACCURACY: 0.70,
         WORD_DIFF_RATIO: 0.25,
         SUBSTITUTION_RATIO: 0.50
-    }
+    },
+    DEBUG: false // Set to true for console logging
 };
 
 // Reference text (what users should read)
@@ -87,7 +88,17 @@ function updateRecordButtonState() {
     const environment = elements.environment.value;
     const hasCompletedReadings = state.currentReadings.length >= CONFIG.REQUIRED_READINGS;
 
-    elements.recordButton.disabled = !headsetName || !environment || hasCompletedReadings;
+    const shouldDisable = !headsetName || !environment || hasCompletedReadings;
+    elements.recordButton.disabled = shouldDisable;
+
+    if (CONFIG.DEBUG) {
+        console.log('Button state update:', {
+            headsetName: !!headsetName,
+            environment: !!environment,
+            readings: state.currentReadings.length,
+            disabled: shouldDisable
+        });
+    }
 }
 
 // Handle record button click
@@ -161,6 +172,8 @@ function handleRecognitionStart() {
 
 // Handle recognition result
 function handleRecognitionResult(event) {
+    if (CONFIG.DEBUG) console.log('Recognition result received', event);
+
     const transcript = event.results[0][0].transcript;
     const confidence = event.results[0][0].confidence;
 
@@ -181,13 +194,17 @@ function handleRecognitionResult(event) {
 
     state.currentReadings.push(reading);
 
+    if (CONFIG.DEBUG) {
+        console.log(`Reading ${state.currentReadings.length} added. Total: ${state.currentReadings.length}/${CONFIG.REQUIRED_READINGS}`);
+    }
+
     // Update UI
     updateProgress();
 
     // Check if all readings are complete
     if (state.currentReadings.length >= CONFIG.REQUIRED_READINGS) {
         showStatus(`All ${CONFIG.REQUIRED_READINGS} readings complete! Analyzing results...`);
-        completeTest();
+        setTimeout(() => completeTest(), 100);
     } else {
         // Show next reading prompt
         const nextReading = state.currentReadings.length + 1;
@@ -219,11 +236,28 @@ function handleRecognitionError(event) {
 
 // Handle recognition end
 function handleRecognitionEnd() {
+    if (CONFIG.DEBUG) {
+        console.log('Recognition ended. Readings so far:', state.currentReadings.length);
+    }
+
     state.isRecording = false;
     state.recognition = null;
 
     // Re-enable button if not all readings complete
     updateRecordButtonUI(false);
+
+    // Force button state update with a slight delay to ensure DOM is ready
+    setTimeout(() => {
+        if (state.currentReadings.length < CONFIG.REQUIRED_READINGS) {
+            const headsetName = elements.headsetName.value.trim();
+            const environment = elements.environment.value;
+
+            if (headsetName && environment) {
+                elements.recordButton.disabled = false;
+                if (CONFIG.DEBUG) console.log('Button force-enabled for next recording');
+            }
+        }
+    }, 100);
 
     // Clear any stale error messages
     if (state.currentReadings.length > 0 && state.currentReadings.length < CONFIG.REQUIRED_READINGS) {
