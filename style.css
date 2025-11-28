@@ -596,6 +596,92 @@ tbody tr:hover {
     outline-offset: 2px;
 }
 
+/* Diagnostics Panel */
+.diagnostics-panel {
+    margin-top: var(--spacing-xl);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background-color: var(--bg-primary);
+}
+
+.diagnostics-panel summary {
+    padding: var(--spacing-md);
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--text-primary);
+    user-select: none;
+    list-style: none;
+}
+
+.diagnostics-panel summary::-webkit-details-marker {
+    display: none;
+}
+
+.diagnostics-panel summary:hover {
+    background-color: var(--border-color);
+}
+
+.diagnostics-content {
+    padding: var(--spacing-md);
+    border-top: 1px solid var(--border-color);
+}
+
+.diagnostics-section {
+    margin-bottom: var(--spacing-lg);
+}
+
+.diagnostics-section:last-child {
+    margin-bottom: 0;
+}
+
+.diagnostics-section h4 {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    margin-bottom: var(--spacing-sm);
+    color: var(--text-primary);
+}
+
+.diagnostics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background-color: var(--bg-card);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+}
+
+.event-log {
+    background-color: #1f2937;
+    color: #10b981;
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    max-height: 200px;
+    overflow-y: auto;
+    margin-bottom: var(--spacing-sm);
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.event-log:empty::before {
+    content: "No events logged yet...";
+    color: #6b7280;
+}
+
+.manual-controls {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.btn-small {
+    font-size: var(--font-size-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    min-height: 36px;
+}
+
 /* Version Footer */
 .version-footer {
     text-align: center;

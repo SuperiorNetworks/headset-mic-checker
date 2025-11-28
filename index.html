@@ -78,6 +78,36 @@
 
             <div id="recordingStatus" class="status-message" role="status" aria-live="polite"></div>
             <div id="recordingError" class="error-message" role="alert" aria-live="assertive"></div>
+
+            <!-- Diagnostics Panel -->
+            <details class="diagnostics-panel">
+                <summary>🔧 Diagnostics & Troubleshooting</summary>
+                <div class="diagnostics-content">
+                    <div class="diagnostics-section">
+                        <h4>Current State</h4>
+                        <div class="diagnostics-grid">
+                            <div><strong>Status:</strong> <span id="diagStatus">Idle</span></div>
+                            <div><strong>Readings:</strong> <span id="diagReadings">0/3</span></div>
+                            <div><strong>Button:</strong> <span id="diagButton">Disabled</span></div>
+                            <div><strong>Recording:</strong> <span id="diagRecording">No</span></div>
+                        </div>
+                    </div>
+
+                    <div class="diagnostics-section">
+                        <h4>Event Log</h4>
+                        <div id="eventLog" class="event-log"></div>
+                        <button id="clearLogButton" class="btn btn-secondary btn-small">Clear Log</button>
+                    </div>
+
+                    <div class="diagnostics-section">
+                        <h4>Manual Controls</h4>
+                        <div class="manual-controls">
+                            <button id="forceEnableButton" class="btn btn-secondary btn-small">Force Enable Button</button>
+                            <button id="resetStateButton" class="btn btn-secondary btn-small">Reset State</button>
+                        </div>
+                    </div>
+                </div>
+            </details>
         </section>
 
         <!-- Results Card -->
@@ -119,8 +149,8 @@
 
         <!-- Version Footer -->
         <footer class="version-footer">
-            <span id="versionNumber">v1.2.0</span>
-            <span class="build-time">Built: 2025-11-28 14:24 UTC</span>
+            <span id="versionNumber">v1.3.0</span>
+            <span class="build-time">Built: 2025-11-28 09:24 EST</span>
         </footer>
     </main>
 

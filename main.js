@@ -1,4 +1,4 @@
-// Version: 1.2.0 - Build: 2025-11-28 14:24 UTC
+// Version: 1.3.0 - Build: 2025-11-28 09:24 EST
 // Configuration and Constants
 const CONFIG = {
     REQUIRED_READINGS: 3,
@@ -12,7 +12,8 @@ const CONFIG = {
         WORD_DIFF_RATIO: 0.25,
         SUBSTITUTION_RATIO: 0.50
     },
-    DEBUG: false // Set to true for console logging
+    DEBUG: true, // Always enable for diagnostics
+    MAX_LOG_ENTRIES: 50
 };
 
 // Reference text (what users should read)
@@ -45,14 +46,75 @@ const elements = {
     newTestButton: document.getElementById('newTestButton'),
     comparisonCard: document.getElementById('comparisonCard'),
     comparisonTableBody: document.getElementById('comparisonTableBody'),
-    browserWarning: document.getElementById('browserWarning')
+    browserWarning: document.getElementById('browserWarning'),
+    // Diagnostic elements
+    diagStatus: document.getElementById('diagStatus'),
+    diagReadings: document.getElementById('diagReadings'),
+    diagButton: document.getElementById('diagButton'),
+    diagRecording: document.getElementById('diagRecording'),
+    eventLog: document.getElementById('eventLog'),
+    clearLogButton: document.getElementById('clearLogButton'),
+    forceEnableButton: document.getElementById('forceEnableButton'),
+    resetStateButton: document.getElementById('resetStateButton')
 };
+
+// Event log management
+const eventLog = [];
+
+function logEvent(message, type = 'info') {
+    const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+    const entry = `[${timestamp}] ${type.toUpperCase()}: ${message}`;
+
+    eventLog.push(entry);
+    if (eventLog.length > CONFIG.MAX_LOG_ENTRIES) {
+        eventLog.shift();
+    }
+
+    if (CONFIG.DEBUG) console.log(entry);
+
+    updateEventLogDisplay();
+}
+
+function updateEventLogDisplay() {
+    if (elements.eventLog) {
+        elements.eventLog.textContent = eventLog.slice(-20).join('\n');
+        elements.eventLog.scrollTop = elements.eventLog.scrollHeight;
+    }
+}
+
+function updateDiagnostics() {
+    if (elements.diagStatus) {
+        let status = 'Idle';
+        if (state.isRecording) status = 'Recording';
+        else if (state.currentReadings.length >= CONFIG.REQUIRED_READINGS) status = 'Complete';
+        elements.diagStatus.textContent = status;
+        elements.diagStatus.style.color = state.isRecording ? '#dc2626' : (status === 'Complete' ? '#16a34a' : '#6b7280');
+    }
+
+    if (elements.diagReadings) {
+        elements.diagReadings.textContent = `${state.currentReadings.length}/${CONFIG.REQUIRED_READINGS}`;
+    }
+
+    if (elements.diagButton) {
+        const isDisabled = elements.recordButton.disabled;
+        elements.diagButton.textContent = isDisabled ? 'Disabled' : 'Enabled';
+        elements.diagButton.style.color = isDisabled ? '#dc2626' : '#16a34a';
+    }
+
+    if (elements.diagRecording) {
+        elements.diagRecording.textContent = state.isRecording ? 'Yes' : 'No';
+        elements.diagRecording.style.color = state.isRecording ? '#dc2626' : '#6b7280';
+    }
+}
 
 // Initialize the application
 function init() {
+    logEvent('Application initializing', 'info');
     checkBrowserSupport();
     setupEventListeners();
     updateRecordButtonState();
+    updateDiagnostics();
+    logEvent('Application ready', 'info');
 }
 
 // Check if browser supports Web Speech API
@@ -74,6 +136,54 @@ function setupEventListeners() {
     elements.environment.addEventListener('change', handleSetupChange);
     elements.recordButton.addEventListener('click', handleRecordButtonClick);
     elements.newTestButton.addEventListener('click', handleNewTest);
+
+    // Diagnostic controls
+    if (elements.clearLogButton) {
+        elements.clearLogButton.addEventListener('click', () => {
+            eventLog.length = 0;
+            updateEventLogDisplay();
+            logEvent('Log cleared by user', 'info');
+        });
+    }
+
+    if (elements.forceEnableButton) {
+        elements.forceEnableButton.addEventListener('click', () => {
+            logEvent('Force enable button clicked', 'warn');
+            elements.recordButton.disabled = false;
+            updateDiagnostics();
+            logEvent('Record button force-enabled', 'warn');
+        });
+    }
+
+    if (elements.resetStateButton) {
+        elements.resetStateButton.addEventListener('click', () => {
+            logEvent('Reset state button clicked', 'warn');
+            resetRecordingState();
+        });
+    }
+}
+
+function resetRecordingState() {
+    logEvent('Resetting recording state', 'warn');
+
+    // Stop any ongoing recognition
+    if (state.recognition) {
+        try {
+            state.recognition.abort();
+        } catch (e) {
+            logEvent(`Error aborting recognition: ${e.message}`, 'error');
+        }
+    }
+
+    state.isRecording = false;
+    state.recognition = null;
+
+    // Re-enable button if we haven't completed all readings
+    updateRecordButtonUI(false);
+    updateRecordButtonState();
+    updateDiagnostics();
+
+    logEvent('State reset complete', 'info');
 }
 
 // Handle setup field changes
@@ -91,14 +201,9 @@ function updateRecordButtonState() {
     const shouldDisable = !headsetName || !environment || hasCompletedReadings;
     elements.recordButton.disabled = shouldDisable;
 
-    if (CONFIG.DEBUG) {
-        console.log('Button state update:', {
-            headsetName: !!headsetName,
-            environment: !!environment,
-            readings: state.currentReadings.length,
-            disabled: shouldDisable
-        });
-    }
+    logEvent(`Button state: ${shouldDisable ? 'DISABLED' : 'ENABLED'} (name:${!!headsetName} env:${!!environment} readings:${state.currentReadings.length}/${CONFIG.REQUIRED_READINGS})`, 'info');
+
+    updateDiagnostics();
 }
 
 // Handle record button click
@@ -112,16 +217,20 @@ function handleRecordButtonClick() {
 
 // Start recording
 function startRecording() {
+    logEvent(`Starting recording for reading ${state.currentReadings.length + 1}/${CONFIG.REQUIRED_READINGS}`, 'info');
+
     // Validate setup
     const headsetName = elements.headsetName.value.trim();
     const environment = elements.environment.value;
 
     if (!headsetName) {
+        logEvent('Recording start failed: No headset name', 'error');
         showError(elements.setupError, 'Please enter a headset name');
         return;
     }
 
     if (!environment) {
+        logEvent('Recording start failed: No environment selected', 'error');
         showError(elements.setupError, 'Please select an environment');
         return;
     }
@@ -130,6 +239,7 @@ function startRecording() {
     if (!state.currentHeadset) {
         state.currentHeadset = headsetName;
         state.currentEnvironment = environment;
+        logEvent(`Test started for: ${headsetName} in ${environment}`, 'info');
     }
 
     // Initialize speech recognition
@@ -141,6 +251,8 @@ function startRecording() {
     state.recognition.interimResults = false;
     state.recognition.maxAlternatives = 1;
 
+    logEvent('Speech recognition initialized', 'info');
+
     // Setup recognition event handlers
     state.recognition.onstart = handleRecognitionStart;
     state.recognition.onresult = handleRecognitionResult;
@@ -149,8 +261,10 @@ function startRecording() {
 
     // Start recognition
     try {
+        logEvent('Calling recognition.start()...', 'info');
         state.recognition.start();
     } catch (error) {
+        logEvent(`Exception calling recognition.start(): ${error.message}`, 'error');
         handleRecognitionError({ error: 'not-allowed', message: error.message });
     }
 }
@@ -164,56 +278,67 @@ function stopRecording() {
 
 // Handle recognition start
 function handleRecognitionStart() {
+    logEvent('Recognition started (onstart event)', 'info');
     state.isRecording = true;
     updateRecordButtonUI(true);
     showStatus('Listening... Speak clearly into your microphone');
     clearError(elements.recordingError);
+    updateDiagnostics();
 }
 
 // Handle recognition result
 function handleRecognitionResult(event) {
-    if (CONFIG.DEBUG) console.log('Recognition result received', event);
+    logEvent('Recognition result received (onresult event)', 'info');
 
-    const transcript = event.results[0][0].transcript;
-    const confidence = event.results[0][0].confidence;
+    try {
+        const transcript = event.results[0][0].transcript;
+        const confidence = event.results[0][0].confidence;
 
-    // Calculate score and analysis
-    const score = calculateScore(REFERENCE_TEXT, transcript);
-    const analysis = analyzeIssues(REFERENCE_TEXT, transcript, score);
-    const wordDiff = generateWordDiff(REFERENCE_TEXT, transcript);
+        logEvent(`Transcript: "${transcript.substring(0, 50)}..." (confidence: ${Math.round(confidence * 100)}%)`, 'info');
 
-    // Store reading
-    const reading = {
-        transcript: transcript,
-        score: score,
-        confidence: confidence,
-        analysis: analysis,
-        wordDiff: wordDiff,
-        timestamp: new Date().toISOString()
-    };
+        // Calculate score and analysis
+        const score = calculateScore(REFERENCE_TEXT, transcript);
+        const analysis = analyzeIssues(REFERENCE_TEXT, transcript, score);
+        const wordDiff = generateWordDiff(REFERENCE_TEXT, transcript);
 
-    state.currentReadings.push(reading);
+        // Store reading
+        const reading = {
+            transcript: transcript,
+            score: score,
+            confidence: confidence,
+            analysis: analysis,
+            wordDiff: wordDiff,
+            timestamp: new Date().toISOString()
+        };
 
-    if (CONFIG.DEBUG) {
-        console.log(`Reading ${state.currentReadings.length} added. Total: ${state.currentReadings.length}/${CONFIG.REQUIRED_READINGS}`);
-    }
+        state.currentReadings.push(reading);
+        logEvent(`Reading ${state.currentReadings.length} stored. Total: ${state.currentReadings.length}/${CONFIG.REQUIRED_READINGS}`, 'info');
 
-    // Update UI
-    updateProgress();
+        // Update UI
+        updateProgress();
+        updateDiagnostics();
 
-    // Check if all readings are complete
-    if (state.currentReadings.length >= CONFIG.REQUIRED_READINGS) {
-        showStatus(`All ${CONFIG.REQUIRED_READINGS} readings complete! Analyzing results...`);
-        setTimeout(() => completeTest(), 100);
-    } else {
-        // Show next reading prompt
-        const nextReading = state.currentReadings.length + 1;
-        showStatus(`Reading ${state.currentReadings.length} complete! Score: ${formatScore(score)}. Ready for reading ${nextReading} of ${CONFIG.REQUIRED_READINGS}.`);
+        // Check if all readings are complete
+        if (state.currentReadings.length >= CONFIG.REQUIRED_READINGS) {
+            logEvent('All readings complete!', 'info');
+            showStatus(`All ${CONFIG.REQUIRED_READINGS} readings complete! Analyzing results...`);
+            setTimeout(() => completeTest(), 100);
+        } else {
+            // Show next reading prompt
+            const nextReading = state.currentReadings.length + 1;
+            showStatus(`Reading ${state.currentReadings.length} complete! Score: ${formatScore(score)}. Ready for reading ${nextReading} of ${CONFIG.REQUIRED_READINGS}.`);
+            logEvent(`Ready for reading ${nextReading}`, 'info');
+        }
+    } catch (error) {
+        logEvent(`Error in handleRecognitionResult: ${error.message}`, 'error');
+        showError(elements.recordingError, `Error processing result: ${error.message}`);
     }
 }
 
 // Handle recognition error
 function handleRecognitionError(event) {
+    logEvent(`Recognition error (onerror event): ${event.error}`, 'error');
+
     let errorMessage = 'An error occurred. Please try again.';
 
     switch (event.error) {
@@ -229,16 +354,18 @@ function handleRecognitionError(event) {
         case 'network':
             errorMessage = 'Network error. Please check your internet connection.';
             break;
+        default:
+            errorMessage = `Error: ${event.error}. Please try again.`;
     }
 
+    logEvent(`Error message: ${errorMessage}`, 'error');
     showError(elements.recordingError, errorMessage);
+    updateDiagnostics();
 }
 
 // Handle recognition end
 function handleRecognitionEnd() {
-    if (CONFIG.DEBUG) {
-        console.log('Recognition ended. Readings so far:', state.currentReadings.length);
-    }
+    logEvent(`Recognition ended (onend event). Readings: ${state.currentReadings.length}/${CONFIG.REQUIRED_READINGS}`, 'info');
 
     state.isRecording = false;
     state.recognition = null;
@@ -253,9 +380,15 @@ function handleRecognitionEnd() {
             const environment = elements.environment.value;
 
             if (headsetName && environment) {
+                const wasDisabled = elements.recordButton.disabled;
                 elements.recordButton.disabled = false;
-                if (CONFIG.DEBUG) console.log('Button force-enabled for next recording');
+                logEvent(`Button force-enabled for next recording (was: ${wasDisabled ? 'disabled' : 'enabled'})`, 'warn');
+                updateDiagnostics();
+            } else {
+                logEvent(`Cannot enable button: headset=${!!headsetName}, env=${!!environment}`, 'warn');
             }
+        } else {
+            logEvent('All readings complete, button remains disabled', 'info');
         }
     }, 100);
 
@@ -263,6 +396,8 @@ function handleRecognitionEnd() {
     if (state.currentReadings.length > 0 && state.currentReadings.length < CONFIG.REQUIRED_READINGS) {
         clearError(elements.recordingError);
     }
+
+    updateDiagnostics();
 }
 
 // Update record button UI
