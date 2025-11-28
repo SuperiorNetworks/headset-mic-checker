@@ -596,6 +596,25 @@ tbody tr:hover {
     outline-offset: 2px;
 }
 
+/* Version Footer */
+.version-footer {
+    text-align: center;
+    padding: var(--spacing-lg) 0;
+    margin-top: var(--spacing-xl);
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+    border-top: 1px solid var(--border-color);
+}
+
+#versionNumber {
+    font-family: 'Courier New', monospace;
+    background-color: var(--bg-primary);
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    font-weight: 500;
+}
+
 /* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
     * {

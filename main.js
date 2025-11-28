@@ -1,3 +1,4 @@
+// Version: 1.1.0 - Bug fixes and word diff feature
 // Configuration and Constants
 const CONFIG = {
     REQUIRED_READINGS: 3,
@@ -182,11 +183,15 @@ function handleRecognitionResult(event) {
 
     // Update UI
     updateProgress();
-    showStatus(`Reading ${state.currentReadings.length} complete! Score: ${formatScore(score)}`);
 
     // Check if all readings are complete
     if (state.currentReadings.length >= CONFIG.REQUIRED_READINGS) {
+        showStatus(`All ${CONFIG.REQUIRED_READINGS} readings complete! Analyzing results...`);
         completeTest();
+    } else {
+        // Show next reading prompt
+        const nextReading = state.currentReadings.length + 1;
+        showStatus(`Reading ${state.currentReadings.length} complete! Score: ${formatScore(score)}. Ready for reading ${nextReading} of ${CONFIG.REQUIRED_READINGS}.`);
     }
 }
 
@@ -215,8 +220,15 @@ function handleRecognitionError(event) {
 // Handle recognition end
 function handleRecognitionEnd() {
     state.isRecording = false;
-    updateRecordButtonUI(false);
     state.recognition = null;
+
+    // Re-enable button if not all readings complete
+    updateRecordButtonUI(false);
+
+    // Clear any stale error messages
+    if (state.currentReadings.length > 0 && state.currentReadings.length < CONFIG.REQUIRED_READINGS) {
+        clearError(elements.recordingError);
+    }
 }
 
 // Update record button UI
