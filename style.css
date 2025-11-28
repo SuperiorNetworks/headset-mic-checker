@@ -676,6 +676,12 @@ tbody tr:hover {
     flex-wrap: wrap;
 }
 
+.log-controls {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
 .btn-small {
     font-size: var(--font-size-xs);
     padding: var(--spacing-xs) var(--spacing-sm);

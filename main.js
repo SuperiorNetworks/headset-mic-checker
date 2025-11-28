@@ -1,4 +1,4 @@
-// Version: 1.4.0 - Build: 2025-11-28 14:41 EST
+// Version: 1.4.1 - Build: 2025-11-28 14:52 EST
 // Configuration and Constants
 const CONFIG = {
     REQUIRED_READINGS: 3,
@@ -56,6 +56,7 @@ const elements = {
     diagRecording: document.getElementById('diagRecording'),
     eventLog: document.getElementById('eventLog'),
     clearLogButton: document.getElementById('clearLogButton'),
+    copyLogButton: document.getElementById('copyLogButton'),
     forceEnableButton: document.getElementById('forceEnableButton'),
     resetStateButton: document.getElementById('resetStateButton')
 };
@@ -145,6 +146,36 @@ function setupEventListeners() {
             eventLog.length = 0;
             updateEventLogDisplay();
             logEvent('Log cleared by user', 'info');
+        });
+    }
+
+    if (elements.copyLogButton) {
+        elements.copyLogButton.addEventListener('click', async () => {
+            const logText = eventLog.join('\n');
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(logText);
+                    logEvent('Log copied to clipboard', 'info');
+                    showStatus('Event log copied to clipboard!');
+                    setTimeout(() => clearStatus(), 2000);
+                } else {
+                    // Fallback for browsers without clipboard API
+                    const textarea = document.createElement('textarea');
+                    textarea.value = logText;
+                    textarea.style.position = 'fixed';
+                    textarea.style.opacity = '0';
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    logEvent('Log copied to clipboard (fallback)', 'info');
+                    showStatus('Event log copied to clipboard!');
+                    setTimeout(() => clearStatus(), 2000);
+                }
+            } catch (error) {
+                logEvent(`Error copying log: ${error.message}`, 'error');
+                showError(elements.recordingError, 'Failed to copy log. Please select and copy manually.');
+            }
         });
     }
 
@@ -859,6 +890,12 @@ function getEnvironmentLabel(value) {
 function showStatus(message) {
     elements.recordingStatus.textContent = message;
     elements.recordingStatus.style.display = 'block';
+}
+
+// Clear status message
+function clearStatus() {
+    elements.recordingStatus.textContent = '';
+    elements.recordingStatus.style.display = 'none';
 }
 
 // Show error message
