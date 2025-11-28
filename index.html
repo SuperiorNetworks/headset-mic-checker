@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Test and compare microphone quality of different headsets for speech recognition">
+    <title>Headset Mic Checker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main class="container">
+        <!-- Header Card -->
+        <header class="card header-card">
+            <h1>Headset Mic Checker</h1>
+            <p class="subtitle">Test and compare your headset's microphone quality for speech recognition</p>
+        </header>
+
+        <!-- Browser Support Warning -->
+        <div id="browserWarning" class="card warning-card" role="alert" aria-live="polite" style="display: none;">
+            <h2>Browser Not Supported</h2>
+            <p>Your browser does not support the Web Speech API needed for this application. Please use a recent version of Chrome or Edge on desktop, or Chrome on Android for the best experience.</p>
+        </div>
+
+        <!-- Setup Card -->
+        <section class="card setup-card">
+            <h2>Setup</h2>
+            <div class="form-group">
+                <label for="headsetName">Headset Name</label>
+                <input
+                    type="text"
+                    id="headsetName"
+                    placeholder="e.g., Logitech H390"
+                    aria-required="true"
+                    autocomplete="off"
+                >
+            </div>
+            <div class="form-group">
+                <label for="environment">Environment</label>
+                <select id="environment" aria-required="true">
+                    <option value="">Select environment...</option>
+                    <option value="quiet">Quiet Room</option>
+                    <option value="office">Office</option>
+                    <option value="home">Home (Background Noise)</option>
+                    <option value="cafe">Cafe/Public Space</option>
+                    <option value="outdoor">Outdoor</option>
+                </select>
+            </div>
+            <div id="setupError" class="error-message" role="alert" aria-live="polite"></div>
+        </section>
+
+        <!-- Reading Card -->
+        <section class="card reading-card">
+            <h2>Reading Test</h2>
+            <p class="instructions">Read the following paragraph aloud three times. We'll analyze the accuracy of each recording.</p>
+
+            <div class="reading-text" id="readingText">
+                <p>The quick brown fox jumps over the lazy dog near the riverbank. Technology helps us communicate better every day. Speech recognition has improved greatly over the past few years.</p>
+            </div>
+
+            <div class="progress-section">
+                <p class="progress-label">Progress: <span id="progressText">0 of 3 readings complete</span></p>
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+            </div>
+
+            <div class="recording-controls">
+                <button
+                    id="recordButton"
+                    class="btn btn-primary btn-large"
+                    disabled
+                    aria-label="Start recording"
+                >
+                    <span class="btn-icon">🎤</span>
+                    <span class="btn-text">Start Recording</span>
+                </button>
+            </div>
+
+            <div id="recordingStatus" class="status-message" role="status" aria-live="polite"></div>
+            <div id="recordingError" class="error-message" role="alert" aria-live="assertive"></div>
+        </section>
+
+        <!-- Results Card -->
+        <section class="card results-card" id="resultsCard" style="display: none;">
+            <h2>Results for <span id="currentHeadsetName"></span></h2>
+            <div class="score-summary">
+                <div class="score-item">
+                    <span class="score-label">Average Score</span>
+                    <span class="score-value" id="averageScore">-</span>
+                </div>
+            </div>
+
+            <h3>Individual Readings</h3>
+            <div id="readingsList" class="readings-list"></div>
+
+            <button id="newTestButton" class="btn btn-secondary">
+                Test Another Headset
+            </button>
+        </section>
+
+        <!-- Comparison Card -->
+        <section class="card comparison-card" id="comparisonCard" style="display: none;">
+            <h2>Comparison Table</h2>
+            <div class="table-container">
+                <table id="comparisonTable">
+                    <thead>
+                        <tr>
+                            <th>Headset</th>
+                            <th>Environment</th>
+                            <th>Avg Score</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="comparisonTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script src="main.js"></script>
+</body>
+</html>
