@@ -166,6 +166,7 @@ function handleRecognitionResult(event) {
     // Calculate score and analysis
     const score = calculateScore(REFERENCE_TEXT, transcript);
     const analysis = analyzeIssues(REFERENCE_TEXT, transcript, score);
+    const wordDiff = generateWordDiff(REFERENCE_TEXT, transcript);
 
     // Store reading
     const reading = {
@@ -173,6 +174,7 @@ function handleRecognitionResult(event) {
         score: score,
         confidence: confidence,
         analysis: analysis,
+        wordDiff: wordDiff,
         timestamp: new Date().toISOString()
     };
 
@@ -294,6 +296,9 @@ function createReadingElement(reading, number) {
     const score = reading.score;
     const scoreClass = getScoreClass(score);
 
+    // Generate word diff HTML
+    const wordDiffHtml = generateWordDiffHtml(reading.wordDiff);
+
     div.innerHTML = `
         <div class="reading-header">
             <span class="reading-number">Reading ${number}</span>
@@ -303,12 +308,40 @@ function createReadingElement(reading, number) {
             Confidence: ${Math.round(reading.confidence * 100)}%
         </div>
         ${reading.analysis ? `<div class="reading-issue">${reading.analysis}</div>` : ''}
+        <div class="word-diff-container">
+            <div class="word-diff-label">Word-by-word comparison:</div>
+            <div class="word-diff">
+                ${wordDiffHtml}
+            </div>
+        </div>
         <div class="reading-transcript">
-            "${reading.transcript}"
+            <strong>Full transcript:</strong> "${reading.transcript}"
         </div>
     `;
 
     return div;
+}
+
+// Generate HTML for word diff visualization
+function generateWordDiffHtml(wordDiff) {
+    if (!wordDiff || wordDiff.length === 0) {
+        return '<span class="word-diff-word word-match">No data</span>';
+    }
+
+    return wordDiff.map(item => {
+        switch (item.type) {
+            case 'match':
+                return `<span class="word-diff-word word-match" title="Correct">${escapeHtml(item.reference)}</span>`;
+            case 'substitute':
+                return `<span class="word-diff-word word-substitute" title="Expected: ${escapeHtml(item.reference)}, Heard: ${escapeHtml(item.transcript)}">${escapeHtml(item.reference)} → ${escapeHtml(item.transcript)}</span>`;
+            case 'delete':
+                return `<span class="word-diff-word word-missing" title="Missing word">${escapeHtml(item.reference)} ✗</span>`;
+            case 'insert':
+                return `<span class="word-diff-word word-extra" title="Extra word heard">+ ${escapeHtml(item.transcript)}</span>`;
+            default:
+                return '';
+        }
+    }).join(' ');
 }
 
 // Update comparison table
@@ -385,6 +418,105 @@ function normalizeText(text) {
         .toLowerCase()
         .replace(/[^\w\s]/g, '')
         .trim();
+}
+
+// Generate word-by-word diff between reference and transcript
+function generateWordDiff(reference, transcript) {
+    const refWords = normalizeText(reference).split(/\s+/).filter(w => w.length > 0);
+    const transWords = normalizeText(transcript).split(/\s+/).filter(w => w.length > 0);
+
+    // Generate alignment using dynamic programming
+    const alignment = alignWords(refWords, transWords);
+
+    return alignment;
+}
+
+// Align words using edit distance algorithm with backtracking
+function alignWords(refWords, transWords) {
+    const m = refWords.length;
+    const n = transWords.length;
+
+    // Create DP matrix
+    const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+    const backtrack = Array(m + 1).fill(null).map(() => Array(n + 1).fill(null));
+
+    // Initialize base cases
+    for (let i = 0; i <= m; i++) {
+        dp[i][0] = i;
+        backtrack[i][0] = 'delete';
+    }
+    for (let j = 0; j <= n; j++) {
+        dp[0][j] = j;
+        backtrack[0][j] = 'insert';
+    }
+    backtrack[0][0] = 'match';
+
+    // Fill DP matrix
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            if (refWords[i - 1] === transWords[j - 1]) {
+                dp[i][j] = dp[i - 1][j - 1];
+                backtrack[i][j] = 'match';
+            } else {
+                const sub = dp[i - 1][j - 1] + 1;
+                const del = dp[i - 1][j] + 1;
+                const ins = dp[i][j - 1] + 1;
+
+                if (sub <= del && sub <= ins) {
+                    dp[i][j] = sub;
+                    backtrack[i][j] = 'substitute';
+                } else if (del <= ins) {
+                    dp[i][j] = del;
+                    backtrack[i][j] = 'delete';
+                } else {
+                    dp[i][j] = ins;
+                    backtrack[i][j] = 'insert';
+                }
+            }
+        }
+    }
+
+    // Backtrack to get alignment
+    const alignment = [];
+    let i = m, j = n;
+
+    while (i > 0 || j > 0) {
+        const op = backtrack[i][j];
+
+        if (op === 'match') {
+            alignment.unshift({
+                type: 'match',
+                reference: refWords[i - 1],
+                transcript: transWords[j - 1]
+            });
+            i--;
+            j--;
+        } else if (op === 'substitute') {
+            alignment.unshift({
+                type: 'substitute',
+                reference: refWords[i - 1],
+                transcript: transWords[j - 1]
+            });
+            i--;
+            j--;
+        } else if (op === 'delete') {
+            alignment.unshift({
+                type: 'delete',
+                reference: refWords[i - 1],
+                transcript: null
+            });
+            i--;
+        } else if (op === 'insert') {
+            alignment.unshift({
+                type: 'insert',
+                reference: null,
+                transcript: transWords[j - 1]
+            });
+            j--;
+        }
+    }
+
+    return alignment;
 }
 
 // Calculate Levenshtein distance between two arrays
