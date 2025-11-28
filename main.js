@@ -1,4 +1,4 @@
-// Version: 1.3.0 - Build: 2025-11-28 09:24 EST
+// Version: 1.4.0 - Build: 2025-11-28 14:41 EST
 // Configuration and Constants
 const CONFIG = {
     REQUIRED_READINGS: 3,
@@ -26,7 +26,9 @@ const state = {
     currentReadings: [],
     allTests: [],
     isRecording: false,
-    recognition: null
+    recognition: null,
+    watchdogTimer: null,
+    resultReceived: false
 };
 
 // DOM Elements
@@ -166,6 +168,12 @@ function setupEventListeners() {
 function resetRecordingState() {
     logEvent('Resetting recording state', 'warn');
 
+    // Clear watchdog timer
+    if (state.watchdogTimer) {
+        clearTimeout(state.watchdogTimer);
+        state.watchdogTimer = null;
+    }
+
     // Stop any ongoing recognition
     if (state.recognition) {
         try {
@@ -177,13 +185,18 @@ function resetRecordingState() {
 
     state.isRecording = false;
     state.recognition = null;
+    state.resultReceived = false;
+
+    // Clear errors
+    clearError(elements.recordingError);
 
     // Re-enable button if we haven't completed all readings
     updateRecordButtonUI(false);
     updateRecordButtonState();
     updateDiagnostics();
 
-    logEvent('State reset complete', 'info');
+    logEvent('State reset complete - ready for next attempt', 'info');
+    showStatus('State reset. Ready to record.');
 }
 
 // Handle setup field changes
@@ -280,15 +293,40 @@ function stopRecording() {
 function handleRecognitionStart() {
     logEvent('Recognition started (onstart event)', 'info');
     state.isRecording = true;
+    state.resultReceived = false;
     updateRecordButtonUI(true);
     showStatus('Listening... Speak clearly into your microphone');
     clearError(elements.recordingError);
     updateDiagnostics();
+
+    // Start watchdog timer - if no result in 15 seconds, something is wrong
+    state.watchdogTimer = setTimeout(() => {
+        if (state.isRecording && !state.resultReceived) {
+            logEvent('WATCHDOG: No result received after 15 seconds - Web Speech API stuck', 'error');
+            showError(elements.recordingError, 'Speech recognition timed out. The Web Speech API failed to process your speech. Click "Reset State" below and try again.');
+
+            // Try to stop the recognition
+            if (state.recognition) {
+                try {
+                    state.recognition.abort();
+                } catch (e) {
+                    logEvent(`Error aborting stuck recognition: ${e.message}`, 'error');
+                }
+            }
+        }
+    }, 15000);
 }
 
 // Handle recognition result
 function handleRecognitionResult(event) {
     logEvent('Recognition result received (onresult event)', 'info');
+    state.resultReceived = true;
+
+    // Clear watchdog timer since we got a result
+    if (state.watchdogTimer) {
+        clearTimeout(state.watchdogTimer);
+        state.watchdogTimer = null;
+    }
 
     try {
         const transcript = event.results[0][0].transcript;
@@ -367,8 +405,24 @@ function handleRecognitionError(event) {
 function handleRecognitionEnd() {
     logEvent(`Recognition ended (onend event). Readings: ${state.currentReadings.length}/${CONFIG.REQUIRED_READINGS}`, 'info');
 
+    // Clear watchdog timer
+    if (state.watchdogTimer) {
+        clearTimeout(state.watchdogTimer);
+        state.watchdogTimer = null;
+    }
+
+    // Check if we got a result - if not, this is a silent failure
+    if (state.isRecording && !state.resultReceived) {
+        logEvent('ERROR: Recognition ended WITHOUT result - Web Speech API silent failure detected!', 'error');
+        showError(elements.recordingError,
+            '⚠️ Speech recognition failed silently. The Web Speech API did not process your speech. ' +
+            'This is a known browser issue. Please click "Reset State" below and try again.'
+        );
+    }
+
     state.isRecording = false;
     state.recognition = null;
+    state.resultReceived = false;
 
     // Re-enable button if not all readings complete
     updateRecordButtonUI(false);
@@ -391,11 +445,6 @@ function handleRecognitionEnd() {
             logEvent('All readings complete, button remains disabled', 'info');
         }
     }, 100);
-
-    // Clear any stale error messages
-    if (state.currentReadings.length > 0 && state.currentReadings.length < CONFIG.REQUIRED_READINGS) {
-        clearError(elements.recordingError);
-    }
 
     updateDiagnostics();
 }
